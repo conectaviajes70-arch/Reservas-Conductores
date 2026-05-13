@@ -1,7 +1,7 @@
 // ====================== js/conductor.js ======================
 
 const API_URL = "https://script.google.com/macros/s/AKfycbxjszK1c_tq1Ijpxdgyxz7LMWqlmFYKJUQK-3aC-wjqSInqMbEXqGtWyfr0AuzJP-MnCw/exec";
-mapboxgl.accessToken = "pk.eyJ1IjoiMzkxODM2IiwiYSI6ImNtbXl4dWZoNzAyamwycm9pZHBoYjNpNzEifQ.ryQd-8yPv1gX6BkNsToW";
+mapboxgl.accessToken = "pk.eyJ1IjoiMzkxODM2IiwiYSI6ImNtbXl4dWZoNzAyamwycm9pZHBoYjNpNzEifQ.ryQd-8yPv1gX6BkNsToW_A";
 
 let currentUser = null;
 let currentTrip = null;
