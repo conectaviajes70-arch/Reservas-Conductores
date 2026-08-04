@@ -1,1 +1,367 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conecta - Conductor</title>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
+    
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body {
+            font-family: Arial, sans-serif;
+            background: #0b0f1a;
+            color: #fff;
+            min-height: 100vh;
+        }
+        .screen { display: none; padding: 20px; min-height: 100vh; }
+        .screen.active { display: block; }
+        
+        h1, h2 { text-align: center; margin-bottom: 20px; color: #00e5ff; }
+        
+        input, button {
+            width: 100%;
+            padding: 14px;
+            margin: 8px 0;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+        }
+        input { background: #1a1f2e; color: #fff; }
+        button { background: #00e5ff; color: #000; font-weight: bold; cursor: pointer; }
+        button:active { transform: scale(0.97); }
 
+        .btn-accept { background: #00e5ff; color: #000; }
+        .btn-reject { background: #ff3b3b; color: #fff; }
+        .btn-primary { background: #00c2d6; color: #fff; }
+        .btn-final { background: #4ade80; color: #000; }
+        .btn-secondary { background: #333; color: #fff; }
+
+        .trip-card {
+            background: #121726;
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            border-left: 5px solid #00e5ff;
+        }
+        .price { color: #00e5ff; font-weight: bold; font-size: 18px; }
+
+        .map-small { height: 260px; border-radius: 12px; margin: 15px 0; background: #1a1f2e; }
+        .map-large { height: 320px; border-radius: 12px; margin: 15px 0; background: #1a1f2e; }
+
+        /* Bottom Sheet */
+        #bottomSheet {
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            background: #0b0f1a;
+            border-top-left-radius: 20px;
+            border-top-right-radius: 20px;
+            padding: 10px 20px 20px;
+            transform: translateY(70%);
+            transition: transform 0.4s ease;
+            box-shadow: 0 -5px 25px rgba(0,0,0,0.7);
+            z-index: 1000;
+        }
+        #bottomSheet.active { transform: translateY(0); }
+        .sheet-handle {
+            width: 40px; height: 5px;
+            background: #555;
+            border-radius: 10px;
+            margin: 8px auto 15px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- HOME -->
+    <div id="home" class="screen active">
+        <h1>🚗 Conecta ViajaYa</h1>
+        <h2>Panel de Conductor</h2>
+        <button onclick="showScreen('loginConductor')">Ya soy conductor</button>
+        <button onclick="showScreen('registerConductor')">Registrarme como conductor</button>
+    </div>
+
+    <!-- LOGIN -->
+    <div id="loginConductor" class="screen">
+        <h2>Iniciar Sesión</h2>
+        <input type="tel" id="telLogin" placeholder="+52 ...">
+        <input type="password" id="claveLogin" placeholder="Clave">
+        <button onclick="loginConductor()">Entrar</button>
+        <button onclick="showScreen('home')" class="btn-secondary">← Volver</button>
+    </div>
+
+    <!-- REGISTRO -->
+    <div id="registerConductor" class="screen">
+        <h2>Registro de Conductor</h2>
+        <input type="text" id="nombreConductor" placeholder="Nombre completo">
+        <input type="tel" id="telConductor" placeholder="+52 ...">
+        <input type="text" id="placas" placeholder="Placas del vehículo">
+        <input type="text" id="modelo" placeholder="Marca y modelo">
+        <button onclick="registrarConductor()">Registrarme</button>
+        <button onclick="showScreen('home')" class="btn-secondary">← Volver</button>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div id="dashboard" class="screen">
+        <div class="status-toggle">
+            <span id="statusText">Offline</span>
+            <label class="switch">
+                <input type="checkbox" id="toggleOnline" onchange="toggleOnline()">
+                <span class="slider"></span>
+            </label>
+        </div>
+        <h2>Viajes Disponibles</h2>
+        <div id="viajesList"></div>
+    </div>
+
+    <!-- DETALLE DEL VIAJE -->
+    <div id="tripDetail" class="screen">
+        <button onclick="showScreen('dashboard')" class="btn-secondary" style="width:auto;">← Volver</button>
+        <h2>Detalles del Viaje</h2>
+        <div id="mapDetail" class="map-small"></div>
+        
+        <div style="background:#121726;padding:15px;border-radius:12px;margin:15px 0;">
+            <p><strong>Origen:</strong> <span id="origenText"></span></p>
+            <p><strong>Destino:</strong> <span id="destinoText"></span></p>
+            <p><strong>Parada:</strong> <span id="paradaText">Sin parada</span></p>
+            <p><strong>Distancia:</strong> <span id="kmText"></span> km | <strong>Tiempo:</strong> <span id="tiempoText"></span> min</p>
+            <p><strong>Precio:</strong> <span id="precioText" class="price"></span></p>
+            <p><strong>Calificación pasajero:</strong> ⭐ <span id="calificacionText">4.9</span> (18 viajes)</p>
+        </div>
+        <button onclick="aceptarViaje()" class="btn-accept">✅ Aceptar Viaje</button>
+        <button onclick="rechazarViaje()" class="btn-reject">Rechazar</button>
+    </div>
+
+    <!-- VIAJE EN CURSO -->
+    <div id="activeTrip" class="screen">
+        <h2>Viaje en Curso</h2>
+        <div id="mapActive" class="map-large"></div>
+        <p id="tripStatus" style="text-align:center; font-size:18px; margin:15px 0; font-weight:bold;">Esperando acción...</p>
+        
+        <button onclick="irAlOrigenWaze()" class="btn-primary">🗺️ Ir al Origen (Waze)</button>
+        <button onclick="heLlegado()" id="btnLlegado" style="display:none;" class="btn-primary">✅ He Llegado al Origen</button>
+        <button onclick="iniciarViaje()" id="btnIniciar" style="display:none;" class="btn-primary">🚀 Iniciar Viaje</button>
+        <button onclick="finalizarViaje()" id="btnFinalizar" style="display:none;" class="btn-final">🏁 Finalizar Viaje</button>
+        <button onclick="cancelarViaje()" class="btn-reject" style="margin-top:10px;">❌ Cancelar Viaje</button>
+    </div>
+
+    <!-- HISTORIAL -->
+    <div id="history" class="screen">
+        <h2>Historial de Viajes</h2>
+        <div id="historyList"></div>
+    </div>
+
+    <!-- PERFIL -->
+    <div id="profile" class="screen">
+        <h2>Mi Perfil</h2>
+        <div style="background:#121726;padding:20px;border-radius:12px;">
+            <p><strong>Nombre:</strong> <span id="perfilNombre">---</span></p>
+            <p><strong>Vehículo:</strong> <span id="perfilVehiculo">Toyota Camry 2022</span></p>
+            <p><strong>Placas:</strong> <span id="perfilPlacas">ABC-1234</span></p>
+            <hr style="border-color:#333;margin:15px 0;">
+            <h3>Ganancias</h3>
+            <p>Hoy: $<span id="gananciasHoy">1,240</span></p>
+            <p>Esta semana: $<span id="gananciasSemana">8,750</span></p>
+            <p>Este mes: $<span id="gananciasMes">28,500</span></p>
+        </div>
+        <button onclick="cerrarSesion()" class="btn-reject" style="margin-top:20px;">Cerrar Sesión</button>
+    </div>
+
+    <!-- Bottom Sheet -->
+    <div id="bottomSheet">
+        <div class="sheet-handle"></div>
+        <div style="display:flex; gap:8px;">
+            <button onclick="showScreen('dashboard')" style="flex:1;">🚗 Viajes</button>
+            <button onclick="showScreen('history')" style="flex:1;">📋 Historial</button>
+            <button onclick="showScreen('profile')" style="flex:1;">👤 Perfil</button>
+        </div>
+    </div>
+
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+    <script>
+        const API_URL = "https://script.google.com/macros/s/AKfycbxjszK1c_tq1Ijpxdgyxz7LMWqlmFYKJUQK-3aC-wjqSInqMbEXqGtWyfr0AuzJP-MnCw/exec";
+        
+        mapboxgl.accessToken = "pk.eyJ1IjoiMzkxODM2IiwiYSI6ImNtbXl4dWZoNzAyamwycm9pZHBoYjNpNzEifQ.ryQd-8yPv1gX6BkNsToW_A";
+
+        let currentUser = null;
+        let currentTrip = null;
+        let mapDetail = null;
+        let mapActive = null;
+        let isOnline = false;
+
+        function showScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+
+            if (screenId === 'tripDetail') initMapDetail();
+            if (screenId === 'activeTrip') initMapActive();
+        }
+
+        function initMapDetail() {
+            if (mapDetail) return;
+            mapDetail = new mapboxgl.Map({
+                container: 'mapDetail',
+                style: 'mapbox://styles/mapbox/navigation-night-v1',
+                center: [-99.13, 19.43],
+                zoom: 12
+            });
+        }
+
+        function initMapActive() {
+            if (mapActive) return;
+            mapActive = new mapboxgl.Map({
+                container: 'mapActive',
+                style: 'mapbox://styles/mapbox/navigation-night-v1',
+                center: [-99.13, 19.43],
+                zoom: 13
+            });
+        }
+
+        // ==================== LOGIN Y REGISTRO ====================
+        async function loginConductor() {
+            const tel = document.getElementById('telLogin').value.trim();
+            const clave = document.getElementById('claveLogin').value.trim();
+            if (!tel || !clave) return alert("Ingresa teléfono y clave");
+
+            try {
+                const res = await fetch(API_URL, {
+                    method: "POST",
+                    body: JSON.stringify({ tipo: "loginConductor", telefono: tel, clave: clave })
+                });
+                const data = await res.json();
+
+                if (data.status === "ok") {
+                    currentUser = { telefono: tel, nombre: data.nombre || "Conductor" };
+                    localStorage.setItem("conductorTel", tel);
+                    showScreen('dashboard');
+                    toggleOnline();
+                } else {
+                    alert("Datos incorrectos");
+                }
+            } catch(e) {
+                alert("Error de conexión");
+            }
+        }
+
+        async function registrarConductor() {
+            const nombre = document.getElementById('nombreConductor').value.trim();
+            const tel = document.getElementById('telConductor').value.trim();
+            const placas = document.getElementById('placas').value.trim();
+            const modelo = document.getElementById('modelo').value.trim();
+
+            if (!nombre || !tel || !placas || !modelo) return alert("Completa todos los campos");
+
+            try {
+                const res = await fetch(API_URL, {
+                    method: "POST",
+                    body: JSON.stringify({ tipo: "registroConductor", nombre, telefono: tel, placas, modelo })
+                });
+                const data = await res.json();
+
+                if (data.status === "ok") {
+                    alert("Registro exitoso. Tu clave es: " + data.clave);
+                    currentUser = { telefono: tel, nombre };
+                    localStorage.setItem("conductorTel", tel);
+                    showScreen('dashboard');
+                }
+            } catch(e) {
+                alert("Error de conexión");
+            }
+        }
+
+        function cerrarSesion() {
+            if (confirm("¿Cerrar sesión?")) {
+                localStorage.removeItem("conductorTel");
+                location.reload();
+            }
+        }
+
+        // ==================== ONLINE + VIAJES ====================
+        function toggleOnline() {
+            isOnline = document.getElementById('toggleOnline').checked;
+            document.getElementById('statusText').textContent = isOnline ? "🟢 Online" : "Offline";
+            document.getElementById('statusText').style.color = isOnline ? "#00e5ff" : "#aaa";
+            if (isOnline) loadViajesDisponibles();
+        }
+
+        async function loadViajesDisponibles() {
+            const container = document.getElementById('viajesList');
+            container.innerHTML = '<p style="text-align:center;color:#666;">Buscando viajes...</p>';
+
+            try {
+                const res = await fetch(API_URL, {
+                    method: "POST",
+                    body: JSON.stringify({ tipo: "getViajesDisponibles" })
+                });
+                const data = await res.json();
+
+                container.innerHTML = '';
+                if (data.viajes && data.viajes.length > 0) {
+                    data.viajes.forEach(v => {
+                        const div = document.createElement('div');
+                        div.className = 'trip-card';
+                        div.innerHTML = `
+                            <strong>${v.fecha}</strong><br>
+                            📍 ${v.origen} → ${v.destino}<br>
+                            <span class="price">$${v.precio}</span> • ${v.km} km
+                            <button onclick="verDetalleViaje('${v.id}')" style="margin-top:8px;">Ver Detalles</button>
+                        `;
+                        container.appendChild(div);
+                    });
+                } else {
+                    container.innerHTML = '<p style="text-align:center;color:#888;">No hay viajes disponibles en este momento</p>';
+                }
+            } catch(e) {
+                container.innerHTML = '<p style="color:red;text-align:center;">Error al cargar viajes</p>';
+            }
+        }
+
+        function verDetalleViaje(id) {
+            // Aquí puedes mejorar después para traer datos completos
+            currentTrip = {id};
+            alert("Viaje seleccionado (ID: " + id + ")");
+            showScreen('tripDetail');
+        }
+
+        function aceptarViaje() { alert("Viaje Aceptado"); showScreen('activeTrip'); }
+        function rechazarViaje() { if(confirm("¿Rechazar?")) showScreen('dashboard'); }
+
+        // Funciones de Viaje en Curso
+        function irAlOrigenWaze() {
+            window.open('https://waze.com/ul?ll=19.45,-99.15&navigate=yes', '_blank');
+            document.getElementById('btnLlegado').style.display = 'block';
+        }
+
+        function heLlegado() {
+            document.getElementById('tripStatus').innerHTML = '✅ En el origen<br><small>Esperando pasajero (máx 10 min)</small>';
+            document.getElementById('btnLlegado').style.display = 'none';
+            document.getElementById('btnIniciar').style.display = 'block';
+        }
+
+        function iniciarViaje() {
+            document.getElementById('tripStatus').textContent = '🛣️ Viaje en curso';
+            document.getElementById('btnIniciar').style.display = 'none';
+            document.getElementById('btnFinalizar').style.display = 'block';
+        }
+
+        function finalizarViaje() {
+            if (confirm("¿Finalizar viaje?")) {
+                alert("🎉 Viaje finalizado");
+                showScreen('dashboard');
+            }
+        }
+
+        function cancelarViaje() {
+            if (confirm("¿Cancelar viaje?")) showScreen('dashboard');
+        }
+
+        // Inicialización
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('bottomSheet').classList.add('active');
+            const savedTel = localStorage.getItem("conductorTel");
+            if (savedTel) showScreen('dashboard');
+            else showScreen('home');
+        });
+    </script>
+</body>
+</html>
