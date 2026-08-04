@@ -231,8 +231,7 @@
                 const data = await res.json();
 
                 if (data.status === "ok") {
-                    currentUser = { telefono: tel, nombre: data.nombre || "Conductor" };
-localStorage.setItem("conductorTel", tel);
+                    currentUser = {
     
                   showScreen('dashboard');
                     toggleOnline();
