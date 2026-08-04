@@ -231,9 +231,10 @@
                 const data = await res.json();
 
                 if (data.status === "ok") {
-                    currentUser = {
+                    currentUser = { telefono: tel, nombre: data.nombre || "Conductor" };
+localStorage.setItem("conductorTel", tel);
     
-                    showScreen('dashboard');
+                  showScreen('dashboard');
                     toggleOnline();
                 } else {
                     alert("Datos incorrectos");
