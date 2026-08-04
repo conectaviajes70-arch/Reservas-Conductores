@@ -232,6 +232,14 @@
 
                 if (data.status === "ok") {
                     currentUser = {
+    id: data.id,
+    telefono: tel,
+    nombre: data.nombre || "Conductor"
+};
+
+localStorage.setItem("conductorId", data.id);
+localStorage.setItem("conductorTel", tel);
+localStorage.setItem("conductorNombre", data.nombre || "Conductor");
     
                   showScreen('dashboard');
                     toggleOnline();
