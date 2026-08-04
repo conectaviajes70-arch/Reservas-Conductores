@@ -300,11 +300,9 @@ localStorage.setItem("conductorNombre", data.nombre || "Conductor");
                 const res = await fetch(API_URL, {
                     method: "POST",
                    const conductorId = currentUser?.id || localStorage.getItem("conductorId");
-
-body: JSON.stringify({
-    tipo: "getViajesDisponibles",
-    idConductor: conductorId
-})
+                   body: JSON.stringify({
+                tipo: "getViajesDisponibles",
+              idConductor: conductorId })
                 });
                 const data = await res.json();
 
